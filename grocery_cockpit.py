@@ -28,11 +28,14 @@ from typing import Any
 
 
 APP_NAME = "Groceries"
-APP_VERSION = "0.14.7"
+APP_VERSION = "0.14.8"
 DEFAULT_PORT = 8877
 ACCESS_COOKIE = "grocery_cockpit_access"
 STATE_CACHE_SECONDS = 30
 AUTO_SCAN_PROVIDER_IDS = ["zepto", "blinkit", "swiggy_instamart", "amazon_fresh", "jiomart", "dmart", "bigbasket"]
+WATCHLIST_SCHEMA = "grocery-cockpit.watchlist"
+WATCHLIST_SCHEMA_VERSION = 1
+WATCHLIST_IMPORT_LIMIT = 1000
 
 
 PROVIDERS = [
@@ -549,6 +552,136 @@ def add_item(conn: sqlite3.Connection, item: ItemInput) -> int:
     )
     conn.commit()
     return int(cursor.lastrowid)
+
+
+def watchlist_item_payload(item: sqlite3.Row | dict[str, Any]) -> dict[str, Any]:
+    pack_value = item_value(item, "pack_value", None)
+    target_price = item_value(item, "target_price", None)
+    return {
+        "name": compact_text(item_value(item, "name", ""), 160),
+        "brand": compact_text(item_value(item, "brand", ""), 120),
+        "pack_value": float(pack_value) if pack_value is not None else None,
+        "pack_unit": normalize_pack_unit(str(item_value(item, "pack_unit", "") or "")),
+        "category": compact_text(item_value(item, "category", ""), 120),
+        "target_price": float(target_price) if target_price is not None else None,
+        "notes": compact_text(item_value(item, "notes", ""), 500),
+        "match_mode": normalize_match_mode(item_value(item, "match_mode", "exact")),
+    }
+
+
+def export_watchlist(conn: sqlite3.Connection) -> dict[str, Any]:
+    rows = conn.execute(
+        """
+        SELECT name, brand, pack_value, pack_unit, category, target_price, notes, match_mode
+        FROM items
+        WHERE active = 1
+        ORDER BY category COLLATE NOCASE, brand COLLATE NOCASE, name COLLATE NOCASE, id
+        """
+    ).fetchall()
+    items = [watchlist_item_payload(row) for row in rows]
+    return {
+        "schema": WATCHLIST_SCHEMA,
+        "schema_version": WATCHLIST_SCHEMA_VERSION,
+        "app_version": APP_VERSION,
+        "exported_at": utc_now_iso(),
+        "item_count": len(items),
+        "items": items,
+        "excludes": ["price_history", "alerts", "basket", "provider_sessions", "location", "access_key"],
+    }
+
+
+def optional_float(value: Any, field_name: str) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_name} must be a number") from exc
+
+
+def watchlist_item_input(entry: Any) -> ItemInput:
+    if not isinstance(entry, dict):
+        raise ValueError("item must be an object")
+    name = compact_text(entry.get("name", ""), 160)
+    if not name:
+        raise ValueError("item name is required")
+    return ItemInput(
+        name=name,
+        brand=compact_text(entry.get("brand", ""), 120),
+        pack_value=optional_float(entry.get("pack_value"), "pack_value"),
+        pack_unit=normalize_pack_unit(str(entry.get("pack_unit", "") or "")),
+        category=compact_text(entry.get("category", ""), 120),
+        target_price=optional_float(entry.get("target_price"), "target_price"),
+        notes=compact_text(entry.get("notes", ""), 500),
+        match_mode=normalize_match_mode(entry.get("match_mode", "exact")),
+    )
+
+
+def existing_watchlist_item_id(conn: sqlite3.Connection, item: ItemInput) -> int | None:
+    target_name = canonical_item_name(item.name, item.brand)
+    if not target_name:
+        return None
+    rows = conn.execute(
+        """
+        SELECT id, name, brand, pack_value, pack_unit
+        FROM items
+        WHERE active = 1
+        """
+    ).fetchall()
+    for row in rows:
+        if canonical_item_name(row["name"], row["brand"]) != target_name:
+            continue
+        if item.pack_value is None and row["pack_value"] is None:
+            return int(row["id"])
+        if packs_equivalent(item.pack_value, item.pack_unit, row["pack_value"], row["pack_unit"]):
+            return int(row["id"])
+    return None
+
+
+def import_watchlist(conn: sqlite3.Connection, payload: Any, replace: bool = False) -> dict[str, Any]:
+    source = payload
+    if isinstance(payload, dict) and "watchlist" in payload:
+        source = payload.get("watchlist")
+    if isinstance(source, dict):
+        items = source.get("items")
+    else:
+        items = source
+    if not isinstance(items, list):
+        raise ValueError("watchlist must contain an items array")
+    if len(items) > WATCHLIST_IMPORT_LIMIT:
+        raise ValueError(f"watchlist is too large; max {WATCHLIST_IMPORT_LIMIT} items")
+
+    if replace:
+        conn.execute("UPDATE items SET active = 0 WHERE active = 1")
+        conn.execute("DELETE FROM basket_items")
+        conn.execute("DELETE FROM alerts")
+        conn.commit()
+
+    imported = 0
+    existing = 0
+    skipped = 0
+    errors: list[str] = []
+    for index, entry in enumerate(items, start=1):
+        try:
+            item = watchlist_item_input(entry)
+        except ValueError as exc:
+            skipped += 1
+            errors.append(f"item {index}: {exc}")
+            continue
+        if existing_watchlist_item_id(conn, item) is not None:
+            existing += 1
+            continue
+        add_item(conn, item)
+        imported += 1
+
+    return {
+        "imported": imported,
+        "existing": existing,
+        "skipped": skipped,
+        "errors": errors[:20],
+        "total": len(items),
+        "replaced": bool(replace),
+    }
 
 
 def add_observation(conn: sqlite3.Connection, obs: ObservationInput, config: dict[str, Any]) -> None:
@@ -3252,6 +3385,12 @@ class GroceryHandler(http.server.BaseHTTPRequestHandler):
                 return
             self.send_json(self.get_state(full_ok=self.client_accepts_gzip()))
             return
+        if parsed.path == "/api/watchlist/export":
+            if not authorized:
+                self.send_json({"ok": False, "error": "Private access key required"}, status=403)
+                return
+            self.handle_export_watchlist()
+            return
         if parsed.path.startswith("/probe-screenshots/"):
             if not authorized:
                 self.send_json({"ok": False, "error": "Private access key required"}, status=403)
@@ -3272,6 +3411,9 @@ class GroceryHandler(http.server.BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if parsed.path == "/api/items":
                 self.handle_add_item(payload)
+                return
+            if parsed.path == "/api/watchlist/import":
+                self.handle_import_watchlist(payload)
                 return
             if parsed.path == "/api/item/update":
                 self.handle_update_item(payload)
@@ -3454,6 +3596,33 @@ class GroceryHandler(http.server.BaseHTTPRequestHandler):
                 "SameSite=Lax"
             )
         }
+
+    def handle_export_watchlist(self) -> None:
+        conn = open_db(self.db_path)
+        try:
+            payload = export_watchlist(conn)
+        finally:
+            conn.close()
+        filename = f"grocery-cockpit-watchlist-{datetime.now().strftime('%Y%m%d')}.json"
+        self.send_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            "application/json; charset=utf-8",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            },
+        )
+
+    def handle_import_watchlist(self, payload: Any) -> None:
+        config = load_config(self.config_path)
+        replace = bool(payload.get("replace")) if isinstance(payload, dict) else False
+        conn = open_db(self.db_path)
+        try:
+            result = import_watchlist(conn, payload, replace=replace)
+            state = self.remember_state(build_state(conn, config, self.db_path.parent))
+            self.send_json({"ok": True, "result": result, "state": state})
+        finally:
+            conn.close()
 
     def handle_add_item(self, payload: dict[str, Any]) -> None:
         config = load_config(self.config_path)
@@ -4786,6 +4955,16 @@ def render_app() -> str:
       box-shadow: 0 12px 34px rgba(226, 55, 68, .11);
     }
     label { display: block; color: var(--muted); font-size: 12px; margin: 9px 0 4px; }
+    .inline-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 10px;
+    }
+    .inline-check input {
+      width: auto;
+      margin: 0;
+    }
     input, select {
       width: 100%;
       border: 1px solid var(--line);
@@ -5602,6 +5781,22 @@ def render_app() -> str:
       </div>
       <div class="panel-box">
         <div class="panel-heading">
+          <h2>Watchlist Backup</h2>
+          <span class="status-chip section-status is-ok" id="watchlistBackupStatus">Ready</span>
+        </div>
+        <div class="section-note">Save or restore only your grocery names and matching rules. Prices and app sessions stay out.</div>
+        <div class="actions">
+          <button id="exportWatchlistBtn" type="button">Export</button>
+          <button id="importWatchlistBtn" type="button">Import</button>
+        </div>
+        <label class="tiny muted inline-check">
+          <input id="watchlistReplaceToggle" type="checkbox">
+          Replace current saved items
+        </label>
+        <input id="watchlistImportFile" type="file" accept="application/json,.json" hidden>
+      </div>
+      <div class="panel-box">
+        <div class="panel-heading">
           <h2>Price Drops</h2>
           <div class="panel-heading-tools">
             <span class="status-chip section-status" id="alertsStatus">...</span>
@@ -5952,6 +6147,49 @@ def render_app() -> str:
       node.classList.toggle('is-ok', mood === 'ok');
       node.classList.toggle('is-warn', mood === 'warn');
       node.classList.toggle('is-hot', mood === 'hot');
+    }
+
+    function setWatchlistBackupStatus(text, mood = 'ok') {
+      setSectionStatus('watchlistBackupStatus', text, mood);
+    }
+
+    function exportWatchlist() {
+      setWatchlistBackupStatus('Exporting', 'ok');
+      window.location.href = '/api/watchlist/export';
+      setTimeout(() => setWatchlistBackupStatus('Ready', 'ok'), 2500);
+    }
+
+    async function importSelectedWatchlist(event) {
+      const input = event.target;
+      const file = input.files?.[0];
+      if (!file) return;
+      const replace = Boolean(document.getElementById('watchlistReplaceToggle')?.checked);
+      if (replace && !confirm('Replace current saved items with this watchlist? Price history stays in the database, but current saved items will be deactivated.')) {
+        input.value = '';
+        return;
+      }
+      setWatchlistBackupStatus('Importing', 'warn');
+      try {
+        const watchlist = JSON.parse(await file.text());
+        const res = await fetch('/api/watchlist/import', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ watchlist, replace })
+        });
+        const payload = await res.json();
+        if (!payload.ok) throw new Error(payload.error || 'Could not import watchlist');
+        const result = payload.result || {};
+        setWatchlistBackupStatus(`${Number(result.imported || 0)} added`, 'ok');
+        await loadState();
+        if (Number(result.skipped || 0)) {
+          alert(`${Number(result.skipped)} item(s) could not be imported. Check the JSON and try again.`);
+        }
+      } catch (error) {
+        setWatchlistBackupStatus('Import failed', 'hot');
+        alert(error.message || 'Could not import watchlist');
+      } finally {
+        input.value = '';
+      }
     }
 
     function syncSection(section, panelId, buttonId, showLabel, hideLabel) {
@@ -7268,6 +7506,11 @@ def render_app() -> str:
     document.getElementById('providersToggleBtn').addEventListener('click', () => toggleSection('providers'));
     document.getElementById('clearAlertsBtn').addEventListener('click', clearAlerts);
     document.getElementById('alertsNotifyBtn').addEventListener('click', requestAlertNotifications);
+    document.getElementById('exportWatchlistBtn').addEventListener('click', exportWatchlist);
+    document.getElementById('importWatchlistBtn').addEventListener('click', () => {
+      document.getElementById('watchlistImportFile').click();
+    });
+    document.getElementById('watchlistImportFile').addEventListener('change', importSelectedWatchlist);
 
     document.getElementById('addItemBtn')?.addEventListener('click', () => {
       openItemDialog('', 'save');
@@ -7407,6 +7650,26 @@ def print_status(db_path: Path, config_path: Path) -> None:
         conn.close()
 
 
+def export_watchlist_file(db_path: Path, output_path: Path) -> None:
+    conn = open_db(db_path)
+    try:
+        payload = export_watchlist(conn)
+    finally:
+        conn.close()
+    write_json(output_path, payload)
+    print(f"Exported {payload['item_count']} watchlist item(s) to {output_path}")
+
+
+def import_watchlist_file(db_path: Path, input_path: Path, replace: bool = False) -> None:
+    payload = read_json(input_path)
+    conn = open_db(db_path)
+    try:
+        result = import_watchlist(conn, payload, replace=replace)
+    finally:
+        conn.close()
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+
+
 def print_scan_plan(db_path: Path, config_path: Path) -> None:
     config = load_config(config_path)
     conn = open_db(db_path)
@@ -7437,6 +7700,11 @@ def main(argv: list[str] | None = None) -> int:
     import_parser = sub.add_parser("import-zepto")
     import_parser.add_argument("--file", type=Path, default=Path("data/zepto_orders_extract.json"))
     import_parser.add_argument("--replace", action="store_true")
+    export_watchlist_parser = sub.add_parser("export-watchlist")
+    export_watchlist_parser.add_argument("--file", type=Path, default=Path("watchlist.json"))
+    import_watchlist_parser = sub.add_parser("import-watchlist")
+    import_watchlist_parser.add_argument("--file", type=Path, default=Path("watchlist.json"))
+    import_watchlist_parser.add_argument("--replace", action="store_true")
     sub.add_parser("status")
     sub.add_parser("scan-plan")
     args = parser.parse_args(argv)
@@ -7461,6 +7729,12 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, indent=2, ensure_ascii=False))
         finally:
             conn.close()
+        return 0
+    if args.command == "export-watchlist":
+        export_watchlist_file(args.db, args.file)
+        return 0
+    if args.command == "import-watchlist":
+        import_watchlist_file(args.db, args.file, replace=args.replace)
         return 0
     if args.command == "status":
         print_status(args.db, args.config)

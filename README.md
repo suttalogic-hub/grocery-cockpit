@@ -68,6 +68,24 @@ py -3.13 grocery_cockpit.py seed
 
 The seed command creates a small sample grocery list and price history. It does not need your account, address, browser profile, or private grocery history.
 
+## Watchlist Import/Export
+
+Export only saved grocery definitions:
+
+```powershell
+py -3.13 grocery_cockpit.py export-watchlist --file watchlist.json
+```
+
+Import into another local install:
+
+```powershell
+py -3.13 grocery_cockpit.py import-watchlist --file watchlist.json
+```
+
+Use `--replace` only when you want the imported file to become the active saved-item list.
+
+Watchlist exports include item names, brands, pack sizes, categories, target prices, notes, and matching rules. They do not include price history, alerts, baskets, provider sessions, location, dashboard access keys, or browser data.
+
 ## Configuration
 
 Copy `config.example.json` to `config.json`, then set your own location and access settings.
@@ -131,7 +149,7 @@ py -3.13 -m py_compile grocery_cockpit.py auto_scan_worker.py basket_scan_worker
 
 - separate provider adapters from the core application more cleanly
 - add more tests for bad-match rejection and basket optimization
-- add import/export for watchlists without personal price history
+- expand import/export for watchlists without personal price history
 - add a public demo screenshot set generated from seed data
 - document adapter compliance expectations
 - improve hosted deployment paths for private self-hosted use

@@ -104,5 +104,113 @@ class DemoSeedTests(unittest.TestCase):
                 conn.close()
 
 
+class WatchlistImportExportTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db_path = Path(self.tmp.name) / "grocery.sqlite"
+        self.conn = g.open_db(self.db_path)
+        self.config = g.default_config()
+
+    def tearDown(self):
+        self.conn.close()
+        self.tmp.cleanup()
+
+    def test_export_watchlist_excludes_private_runtime_data(self):
+        item_id = g.add_item(
+            self.conn,
+            g.ItemInput(
+                name="Paneer",
+                brand="Amul",
+                pack_value=200,
+                pack_unit="g",
+                category="Dairy",
+                target_price=80,
+                match_mode="same_size",
+            ),
+        )
+        g.add_observation(
+            self.conn,
+            g.ObservationInput(
+                item_id=item_id,
+                provider_id="blinkit",
+                price=82,
+                observed_at=g.utc_now_iso(),
+                source="manual",
+                url="https://example.test/private-product",
+            ),
+            self.config,
+        )
+        g.set_basket_item(self.conn, item_id, 2)
+
+        payload = g.export_watchlist(self.conn)
+
+        self.assertEqual(payload["schema"], g.WATCHLIST_SCHEMA)
+        self.assertEqual(payload["item_count"], 1)
+        self.assertEqual(payload["items"][0]["name"], "Paneer")
+        self.assertEqual(payload["items"][0]["match_mode"], "same_size")
+        encoded_items = json_dumps(payload["items"])
+        for private_key in ["observations", "alerts", "basket_items", "created_at", "url"]:
+            self.assertNotIn(private_key, encoded_items)
+        for excluded in ["price_history", "alerts", "basket", "provider_sessions", "location", "access_key"]:
+            self.assertIn(excluded, payload["excludes"])
+
+    def test_import_watchlist_merges_and_ignores_price_history(self):
+        payload = {
+            "schema": g.WATCHLIST_SCHEMA,
+            "schema_version": 1,
+            "items": [
+                {
+                    "name": "Curry cut chicken",
+                    "brand": "",
+                    "pack_value": 500,
+                    "pack_unit": "g",
+                    "category": "Meat",
+                    "target_price": 180,
+                    "match_mode": "same_size",
+                    "observations": [{"price": 1}],
+                },
+                {
+                    "name": "Surf Excel",
+                    "brand": "",
+                    "pack_value": 1,
+                    "pack_unit": "kg",
+                    "category": "Household",
+                    "match_mode": "exact",
+                },
+            ],
+        }
+
+        first = g.import_watchlist(self.conn, payload)
+        second = g.import_watchlist(self.conn, payload)
+
+        self.assertEqual(first["imported"], 2)
+        self.assertEqual(second["existing"], 2)
+        self.assertEqual(
+            self.conn.execute("SELECT COUNT(*) AS count FROM items WHERE active = 1").fetchone()["count"],
+            2,
+        )
+        self.assertEqual(
+            self.conn.execute("SELECT COUNT(*) AS count FROM observations").fetchone()["count"],
+            0,
+        )
+
+    def test_import_watchlist_replace_deactivates_current_items(self):
+        g.import_watchlist(self.conn, [{"name": "Old item", "category": "Demo"}])
+        result = g.import_watchlist(self.conn, [{"name": "New item", "category": "Demo"}], replace=True)
+
+        self.assertTrue(result["replaced"])
+        active_names = [
+            row["name"]
+            for row in self.conn.execute("SELECT name FROM items WHERE active = 1 ORDER BY name").fetchall()
+        ]
+        self.assertEqual(active_names, ["New item"])
+
+
+def json_dumps(payload):
+    import json
+
+    return json.dumps(payload, sort_keys=True)
+
+
 if __name__ == "__main__":
     unittest.main()

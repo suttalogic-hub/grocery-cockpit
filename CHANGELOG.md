@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.14.8 - Watchlist Import/Export
+
+- Added public-safe watchlist export without price history, alerts, baskets, provider sessions, location, or access keys.
+- Added watchlist import with merge-by-default and explicit replace mode.
+- Added dashboard controls and CLI commands for watchlist backup and restore.
+- Added tests for watchlist privacy boundaries and duplicate-safe import behavior.
+- Aligned the npm package license with the repository's MIT license.
+
 ## 0.14.7 - OSS Prep
 
 - Added public-safe project documentation.
@@ -14,4 +22,3 @@
 - Routed Amazon Now rows to direct product pages when a valid product URL is available.
 - Fell back to Amazon Now search when no trusted product URL is available.
 - Tightened bad-match behavior for size-sensitive products such as Coke Zero 750ml.
-
