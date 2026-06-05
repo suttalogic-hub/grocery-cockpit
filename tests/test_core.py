@@ -1,8 +1,17 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 import grocery_cockpit as g
+
+
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
+
+
+def load_bad_match_cases():
+    with (FIXTURE_DIR / "bad_match_cases.json").open("r", encoding="utf-8") as handle:
+        return json.load(handle)
 
 
 class CorePricingTests(unittest.TestCase):
@@ -88,6 +97,35 @@ class CoreMatchingTests(unittest.TestCase):
         }
 
         self.assertIsNone(g.best_probe_match(item, result))
+
+    def test_synthetic_bad_match_fixture_suite(self):
+        cases = load_bad_match_cases()
+        self.assertGreaterEqual(len(cases), 8)
+        covered_modes = set()
+
+        for case in cases:
+            with self.subTest(case=case["id"]):
+                self.assertTrue(case.get("reason"), "Each fixture must explain its matching risk.")
+                covered_modes.add(case["mode"])
+                item = self.add_item(g.ItemInput(**case["item"]))
+                result = {
+                    "search_kind": case.get("search_kind", case["item"].get("match_mode", "exact")),
+                    "links": case["links"],
+                }
+
+                match = g.best_probe_match(item, result)
+                if case["should_match"]:
+                    self.assertIsNotNone(match)
+                    if case.get("expected_price") is not None:
+                        self.assertEqual(match["price"], case["expected_price"])
+                    if case.get("expected_unit_price") is not None:
+                        self.assertEqual(match["unit_price"], case["expected_unit_price"])
+                    if case.get("expected_text_contains"):
+                        self.assertIn(case["expected_text_contains"].lower(), match["text"].lower())
+                else:
+                    self.assertIsNone(match)
+
+        self.assertEqual(covered_modes, {"exact", "category", "same_size", "unit"})
 
 
 class DemoSeedTests(unittest.TestCase):
@@ -207,8 +245,6 @@ class WatchlistImportExportTests(unittest.TestCase):
 
 
 def json_dumps(payload):
-    import json
-
     return json.dumps(payload, sort_keys=True)
 
 

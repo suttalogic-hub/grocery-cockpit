@@ -1,0 +1,295 @@
+[
+  {
+    "id": "exact_surf_excel_rejects_wrong_detergent_type",
+    "mode": "exact",
+    "reason": "Exact branded detergent should not accept a different Surf Excel product type just because the brand overlaps.",
+    "item": {
+      "name": "Matic Liquid Detergent",
+      "brand": "Surf Excel",
+      "pack_value": 1,
+      "pack_unit": "l",
+      "category": "Household",
+      "match_mode": "exact"
+    },
+    "search_kind": "exact",
+    "links": [
+      {
+        "text": "Surf Excel Easy Wash Detergent Powder 1 kg Rs 149 MRP Rs 175 ADD",
+        "href": "https://example.test/surf-excel-powder"
+      }
+    ],
+    "should_match": false
+  },
+  {
+    "id": "exact_surf_excel_accepts_same_product",
+    "mode": "exact",
+    "reason": "Exact mode should accept the same brand, product type, and pack size.",
+    "item": {
+      "name": "Matic Liquid Detergent",
+      "brand": "Surf Excel",
+      "pack_value": 1,
+      "pack_unit": "l",
+      "category": "Household",
+      "match_mode": "exact"
+    },
+    "search_kind": "exact",
+    "links": [
+      {
+        "text": "Surf Excel Matic Liquid Detergent 1 L Rs 210 MRP Rs 250 ADD",
+        "href": "https://example.test/surf-excel-matic-liquid"
+      }
+    ],
+    "should_match": true,
+    "expected_price": 210,
+    "expected_text_contains": "Matic Liquid"
+  },
+  {
+    "id": "same_size_coke_zero_rejects_regular_coke",
+    "mode": "same_size",
+    "reason": "Same-size mode still needs the key variant word Zero, not just the same cola brand and bottle size.",
+    "item": {
+      "name": "Coca-Cola Zero Sugar Soft Drink",
+      "brand": "",
+      "pack_value": 750,
+      "pack_unit": "ml",
+      "category": "Beverages",
+      "match_mode": "same_size"
+    },
+    "search_kind": "same_size",
+    "links": [
+      {
+        "text": "Coca-Cola 750ml Rs 35 MRP Rs 40 ADD",
+        "href": "https://example.test/coke-regular-750"
+      }
+    ],
+    "should_match": false
+  },
+  {
+    "id": "same_size_paneer_accepts_alt_brand_same_pack",
+    "mode": "same_size",
+    "reason": "Paneer in same-size mode can use a different acceptable brand when the pack size matches.",
+    "item": {
+      "name": "Low Fat Paneer",
+      "brand": "Desi Farms",
+      "pack_value": 200,
+      "pack_unit": "g",
+      "category": "Dairy",
+      "match_mode": "same_size"
+    },
+    "search_kind": "generic_fallback",
+    "links": [
+      {
+        "text": "Amul Fresh Paneer 200 g Rs 76 MRP Rs 90 ADD",
+        "href": "https://example.test/amul-paneer-200g"
+      }
+    ],
+    "should_match": true,
+    "expected_price": 76,
+    "expected_text_contains": "Paneer 200 g"
+  },
+  {
+    "id": "same_size_paneer_rejects_wrong_pack",
+    "mode": "same_size",
+    "reason": "Paneer in same-size mode should reject a much larger pack even if the product type is right.",
+    "item": {
+      "name": "Low Fat Paneer",
+      "brand": "Desi Farms",
+      "pack_value": 200,
+      "pack_unit": "g",
+      "category": "Dairy",
+      "match_mode": "same_size"
+    },
+    "search_kind": "generic_fallback",
+    "links": [
+      {
+        "text": "Amul Fresh Paneer 1 kg Rs 340 MRP Rs 400 ADD",
+        "href": "https://example.test/amul-paneer-1kg"
+      }
+    ],
+    "should_match": false
+  },
+  {
+    "id": "category_curd_rejects_curd_churned_ghee",
+    "mode": "category",
+    "reason": "A product description saying curd-churned is still ghee, not curd.",
+    "item": {
+      "name": "Amul Curd Pouch",
+      "brand": "",
+      "pack_value": 700,
+      "pack_unit": "g",
+      "category": "Dairy",
+      "match_mode": "category"
+    },
+    "search_kind": "generic_fallback",
+    "links": [
+      {
+        "text": "SONAI Desi Ghee 100 ML - Bilona Method, Curd Churned, Pure & Natural Rs 68 MRP Rs 100 ADD",
+        "href": "https://example.test/curd-churned-ghee"
+      }
+    ],
+    "should_match": false
+  },
+  {
+    "id": "category_chicken_accepts_curry_cut_alt_pack",
+    "mode": "category",
+    "reason": "A generic curry-cut chicken need can accept a close fresh chicken alternative even if the pack size differs.",
+    "item": {
+      "name": "Curry cut chicken",
+      "brand": "",
+      "pack_value": 500,
+      "pack_unit": "g",
+      "category": "Meat",
+      "match_mode": "category"
+    },
+    "search_kind": "generic_fallback",
+    "links": [
+      {
+        "text": "Fresh Chicken Curry Cut 450 g Rs 165 MRP Rs 189 ADD",
+        "href": "https://example.test/chicken-curry-cut-450g"
+      }
+    ],
+    "should_match": true,
+    "expected_price": 165,
+    "expected_text_contains": "Chicken Curry Cut"
+  },
+  {
+    "id": "category_chicken_rejects_masala_mix",
+    "mode": "category",
+    "reason": "A generic chicken need should reject seasoning or masala mixes that mention chicken.",
+    "item": {
+      "name": "Curry cut chicken",
+      "brand": "",
+      "pack_value": 500,
+      "pack_unit": "g",
+      "category": "Meat",
+      "match_mode": "category"
+    },
+    "search_kind": "generic_fallback",
+    "links": [
+      {
+        "text": "Ready Chicken Masala Mix 100 g Rs 45 MRP Rs 60 ADD",
+        "href": "https://example.test/chicken-masala"
+      }
+    ],
+    "should_match": false
+  },
+  {
+    "id": "unit_potato_chooses_lowest_unit_price",
+    "mode": "unit",
+    "reason": "Best unit price mode should prefer the 2 kg potato pack when it is cheaper per kg.",
+    "item": {
+      "name": "Potato",
+      "brand": "",
+      "pack_value": 1,
+      "pack_unit": "kg",
+      "category": "Vegetables",
+      "match_mode": "unit"
+    },
+    "search_kind": "generic_fallback",
+    "links": [
+      {
+        "text": "Fresh Potato 1 kg Rs 32 MRP Rs 40 ADD",
+        "href": "https://example.test/potato-1kg"
+      },
+      {
+        "text": "Fresh Potato 2 kg Rs 55 MRP Rs 70 ADD",
+        "href": "https://example.test/potato-2kg"
+      }
+    ],
+    "should_match": true,
+    "expected_price": 55,
+    "expected_unit_price": 27.5,
+    "expected_text_contains": "2 kg"
+  },
+  {
+    "id": "unit_potato_rejects_snacks_and_sweet_potato",
+    "mode": "unit",
+    "reason": "Best unit price mode should not treat chips or sweet potato as regular potato.",
+    "item": {
+      "name": "Potato",
+      "brand": "",
+      "pack_value": 1,
+      "pack_unit": "kg",
+      "category": "Vegetables",
+      "match_mode": "unit"
+    },
+    "search_kind": "generic_fallback",
+    "links": [
+      {
+        "text": "Crispy Potato Chips 100 g Rs 20 MRP Rs 25 ADD",
+        "href": "https://example.test/potato-chips"
+      },
+      {
+        "text": "Fresh Sweet Potato 1 kg Rs 49 MRP Rs 60 ADD",
+        "href": "https://example.test/sweet-potato"
+      }
+    ],
+    "should_match": false
+  },
+  {
+    "id": "unit_black_sesame_accepts_seeds",
+    "mode": "unit",
+    "reason": "Black sesame seeds should accept a close seed listing and calculate unit price.",
+    "item": {
+      "name": "Black sesame seeds",
+      "brand": "",
+      "pack_value": 100,
+      "pack_unit": "g",
+      "category": "Staples",
+      "match_mode": "unit"
+    },
+    "search_kind": "generic_fallback",
+    "links": [
+      {
+        "text": "Organic Black Sesame Seeds 100 g Rs 48 MRP Rs 65 ADD",
+        "href": "https://example.test/black-sesame-seeds"
+      }
+    ],
+    "should_match": true,
+    "expected_price": 48,
+    "expected_unit_price": 480,
+    "expected_text_contains": "Sesame Seeds"
+  },
+  {
+    "id": "unit_black_sesame_rejects_oil",
+    "mode": "unit",
+    "reason": "Sesame oil is not a substitute for black sesame seeds.",
+    "item": {
+      "name": "Black sesame seeds",
+      "brand": "",
+      "pack_value": 100,
+      "pack_unit": "g",
+      "category": "Staples",
+      "match_mode": "unit"
+    },
+    "search_kind": "generic_fallback",
+    "links": [
+      {
+        "text": "Cold Pressed Black Sesame Oil 500 ml Rs 220 MRP Rs 260 ADD",
+        "href": "https://example.test/sesame-oil"
+      }
+    ],
+    "should_match": false
+  },
+  {
+    "id": "exact_boro_plus_rejects_other_aloe_gel",
+    "mode": "exact",
+    "reason": "Exact skincare should keep brand identity; a generic aloe vera gel is not Boro Plus.",
+    "item": {
+      "name": "Aloe Vera Gel",
+      "brand": "Boro Plus",
+      "pack_value": 150,
+      "pack_unit": "ml",
+      "category": "Personal care",
+      "match_mode": "exact"
+    },
+    "search_kind": "exact",
+    "links": [
+      {
+        "text": "Patanjali Aloe Vera Gel 150 ml Rs 80 MRP Rs 95 ADD",
+        "href": "https://example.test/aloe-vera-gel"
+      }
+    ],
+    "should_match": false
+  }
+]

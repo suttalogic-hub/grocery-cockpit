@@ -28,7 +28,7 @@ from typing import Any
 
 
 APP_NAME = "Groceries"
-APP_VERSION = "0.14.8"
+APP_VERSION = "0.14.9"
 DEFAULT_PORT = 8877
 ACCESS_COOKIE = "grocery_cockpit_access"
 STATE_CACHE_SECONDS = 30

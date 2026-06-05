@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.14.9 - Bad-Match Fixture Suite
+
+- Added a synthetic bad-match fixture suite covering exact, same-category, same-size, and unit-price matching modes.
+- Added fixture explanations so contributors can understand why each candidate should match or be rejected.
+- Covered grocery examples for detergent variants, Coke Zero, paneer, curd/ghee, curry-cut chicken, potato unit price, sesame seeds, and skincare brand identity.
+- Kept fixture data synthetic and free of personal order history.
+
 ## 0.14.8 - Watchlist Import/Export
 
 - Added public-safe watchlist export without price history, alerts, baskets, provider sessions, location, or access keys.

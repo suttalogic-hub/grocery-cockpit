@@ -145,10 +145,12 @@ node --check browser_scan_worker.mjs
 py -3.13 -m py_compile grocery_cockpit.py auto_scan_worker.py basket_scan_worker.py
 ```
 
+The bad-match tests are fixture-driven. Add synthetic cases to `tests/fixtures/bad_match_cases.json` when improving grocery matching behavior.
+
 ## Roadmap
 
 - separate provider adapters from the core application more cleanly
-- add more tests for bad-match rejection and basket optimization
+- add more tests for basket optimization
 - expand import/export for watchlists without personal price history
 - add a public demo screenshot set generated from seed data
 - document adapter compliance expectations
