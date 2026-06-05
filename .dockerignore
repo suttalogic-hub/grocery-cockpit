@@ -1,0 +1,17 @@
+data/
+node_modules/
+tools/
+__pycache__/
+config.json
+dist/
+.git/
+.env
+.env.*
+browser-profile/
+browser-profiles/
+probe-screenshots/
+*.log
+*.err
+*.err.log
+server_stdout.log
+server_stderr.log

@@ -1,0 +1,16 @@
+[Unit]
+Description=Grocery Cockpit lightweight window manager
+After=grocery-display.service
+Requires=grocery-display.service
+
+[Service]
+Type=simple
+Environment=DISPLAY=:99
+ExecStart=/usr/bin/fluxbox
+Restart=always
+RestartSec=3
+User=grocery
+Group=grocery
+
+[Install]
+WantedBy=multi-user.target

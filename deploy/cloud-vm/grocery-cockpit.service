@@ -1,0 +1,17 @@
+[Unit]
+Description=Grocery Cockpit
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/grocery-cockpit
+Environment=GROCERY_CHROME_PATH=/usr/bin/chromium
+ExecStart=/usr/bin/python3 -u /opt/grocery-cockpit/grocery_cockpit.py serve --host 127.0.0.1
+Restart=always
+RestartSec=5
+User=grocery
+Group=grocery
+
+[Install]
+WantedBy=multi-user.target

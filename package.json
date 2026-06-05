@@ -1,0 +1,19 @@
+{
+  "name": "grocery-cockpit",
+  "version": "0.14.7",
+  "description": "Personal grocery comparison dashboard for Zepto, Blinkit, Swiggy Instamart, Amazon Now, JioMart, DMart Ready, and BigBasket.",
+  "type": "module",
+  "main": "browser_scan_worker.mjs",
+  "scripts": {
+    "plan": "node browser_scan_worker.mjs plan",
+    "queue": "node browser_scan_worker.mjs queue",
+    "setup": "node browser_scan_worker.mjs setup",
+    "probe": "node browser_scan_worker.mjs probe"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "playwright-core": "^1.58.1"
+  }
+}

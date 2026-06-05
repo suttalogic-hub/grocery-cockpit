@@ -1,0 +1,36 @@
+# Personal runtime state
+config.json
+data/
+tools/*.exe
+
+# Dependencies and build output
+node_modules/
+dist/
+
+# Python/Node caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Browser/session artifacts
+browser-profile/
+browser-profiles/
+probe-screenshots/
+
+# Logs and local diagnostics
+*.log
+*.err
+*.err.log
+server_stdout.log
+server_stderr.log
+
+# Local environment files
+.env
+.env.*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

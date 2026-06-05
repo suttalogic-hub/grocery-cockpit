@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run Python tests
+        run: python -m unittest discover -s tests
+
+      - name: Compile Python files
+        run: python -m py_compile grocery_cockpit.py auto_scan_worker.py basket_scan_worker.py
+
+      - name: Check browser worker syntax
+        run: node --check browser_scan_worker.mjs
+

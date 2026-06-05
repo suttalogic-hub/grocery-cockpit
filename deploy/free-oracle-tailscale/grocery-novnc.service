@@ -1,0 +1,13 @@
+[Unit]
+Description=Grocery Cockpit browser setup web console
+After=grocery-x11vnc.service
+Requires=grocery-x11vnc.service
+
+[Service]
+Type=simple
+ExecStart=/usr/share/novnc/utils/novnc_proxy --listen 127.0.0.1:6080 --vnc 127.0.0.1:5900
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

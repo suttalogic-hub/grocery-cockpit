@@ -1,0 +1,22 @@
+{
+  "location": {
+    "label": "Home",
+    "pincode": "",
+    "city": ""
+  },
+  "settings": {
+    "refresh_interval_minutes": 60,
+    "min_10d_avg_drop_percent": 20,
+    "min_30d_avg_drop_percent": 25,
+    "min_history_points": 3,
+    "include_delivery_fees": true,
+    "basket_alert_min_saving": 50,
+    "single_app_convenience_threshold_rupees": 50,
+    "single_app_convenience_threshold_percent": 5,
+    "alert_expiry_hours": 2
+  },
+  "access": {
+    "enabled": true,
+    "key": "change-this-to-a-long-random-private-key"
+  }
+}
