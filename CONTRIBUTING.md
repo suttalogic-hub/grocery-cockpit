@@ -54,4 +54,5 @@ Read [docs/PROVIDER_ADAPTERS.md](docs/PROVIDER_ADAPTERS.md) before changing prov
 - Keep PRs focused.
 - Explain user-visible behavior changes.
 - Add tests for matching, pricing, or basket logic changes.
+- Keep decision-engine test data synthetic and cover the user-facing recommendation or alert outcome.
 - Mention any provider-specific assumptions.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.1 - Decision Engine Contracts
+
+- Added synthetic basket-optimization tests for one-app convenience, worthwhile splits, incomplete coverage, quantities, unit-price ranking, and suspicious-price rejection.
+- Added alerting tests for 10-day and 30-day thresholds, required history, delivery and handling fees, deduplication, suspicious-price rejection, and expiry.
+- Kept the decision suite browser-free and free of personal grocery data.
+- Increased the Python test suite from 15 to 29 tests.
+
 ## 0.15.0 - Provider Adapter Boundary
 
 - Moved provider identity, search routing, open-link policy, readiness, and scan timeouts into a documented Python adapter registry.

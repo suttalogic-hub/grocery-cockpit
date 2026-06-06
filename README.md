@@ -152,9 +152,10 @@ py -3.13 -m py_compile grocery_cockpit.py provider_adapters.py auto_scan_worker.
 
 The bad-match tests are fixture-driven. Add synthetic cases to `tests/fixtures/bad_match_cases.json` when improving grocery matching behavior.
 
+The decision-engine tests in `tests/test_decision_engine.py` protect basket recommendations and deal-alert thresholds without launching provider browsers.
+
 ## Roadmap
 
-- add more tests for basket optimization
 - expand import/export for watchlists without personal price history
 - add a public demo screenshot set generated from seed data
 - improve hosted deployment paths for private self-hosted use
