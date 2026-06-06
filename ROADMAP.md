@@ -13,7 +13,7 @@
 
 - Move provider-specific logic behind clearer adapter interfaces. Completed in `0.15.0`.
 - Add more basket optimization and alerting tests. Completed in `0.15.1`.
-- Add screenshot generation from demo data for README assets.
+- Add screenshot generation from demo data for README assets. Completed in `0.15.2`.
 - Add CI for Python syntax, unit tests, and Node syntax checks.
 
 ## v0.3 Self-Hosted Personal Use

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.2 - Automated Demo Screenshots
+
+- Added a one-command public screenshot generator using isolated synthetic data.
+- Added desktop, mobile, and basket-recommendation README images.
+- Added PNG dimension and blank-image checks to the generator.
+- Added screenshot generation to CI and documented its privacy boundary.
+
 ## 0.15.1 - Decision Engine Contracts
 
 - Added synthetic basket-optimization tests for one-app convenience, worthwhile splits, incomplete coverage, quantities, unit-price ranking, and suspicious-price rejection.

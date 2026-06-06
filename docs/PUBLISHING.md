@@ -6,8 +6,11 @@ Use this when preparing the public GitHub repository.
 
 ```powershell
 py -3.13 -m unittest discover -s tests
-py -3.13 -m py_compile grocery_cockpit.py auto_scan_worker.py basket_scan_worker.py
+py -3.13 -m py_compile grocery_cockpit.py provider_adapters.py auto_scan_worker.py basket_scan_worker.py
+node --check browser_provider_adapters.mjs
 node --check browser_scan_worker.mjs
+node --check scripts/generate_demo_screenshots.mjs
+npm run screenshots
 .\prepare_free_vm_bundle.ps1
 ```
 

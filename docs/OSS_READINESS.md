@@ -8,18 +8,18 @@ This checklist is for preparing Grocery Cockpit for a public repository and main
 - [ ] Verify `config.json` is not committed.
 - [ ] Verify `data/` is not committed.
 - [ ] Verify browser profiles and cookies are not committed.
-- [ ] Replace private screenshots with demo-data screenshots.
+- [x] Replace private screenshots with generated demo-data screenshots.
 - [ ] Run the full test/check command set.
 
 ## Project Signals To Build
 
-- [ ] Public README with clear problem statement.
-- [ ] Demo data that works for new users.
+- [x] Public README with clear problem statement.
+- [x] Demo data that works for new users.
 - [ ] Issues labeled for good first contributions.
-- [ ] Initial release tag, for example `v0.1.0`.
-- [ ] Changelog or release notes.
-- [ ] At least a small test suite around core logic.
-- [ ] Privacy and security documentation.
+- [x] Initial release tag, for example `v0.1.0`.
+- [x] Changelog or release notes.
+- [x] At least a small test suite around core logic.
+- [x] Privacy and security documentation.
 
 ## OpenAI Codex for OSS Application Notes
 

@@ -30,7 +30,7 @@ import provider_adapters
 
 
 APP_NAME = "Groceries"
-APP_VERSION = "0.15.1"
+APP_VERSION = "0.15.2"
 DEFAULT_PORT = 8877
 ACCESS_COOKIE = "grocery_cockpit_access"
 STATE_CACHE_SECONDS = 30

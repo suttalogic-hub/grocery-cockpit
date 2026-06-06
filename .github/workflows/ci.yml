@@ -38,4 +38,7 @@ jobs:
         run: node tests/browser_provider_adapters.test.mjs
 
       - name: Check browser worker syntax
-        run: node --check browser_provider_adapters.mjs && node --check browser_scan_worker.mjs
+        run: node --check browser_provider_adapters.mjs && node --check browser_scan_worker.mjs && node --check scripts/generate_demo_screenshots.mjs
+
+      - name: Generate public demo screenshots
+        run: npm run screenshots

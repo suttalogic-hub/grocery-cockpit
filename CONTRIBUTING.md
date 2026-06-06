@@ -43,6 +43,14 @@ node tests/browser_provider_adapters.test.mjs
 node --check browser_scan_worker.mjs
 ```
 
+Regenerate public demo images after visible dashboard changes:
+
+```powershell
+npm run screenshots
+```
+
+Review [docs/DEMO_SCREENSHOTS.md](docs/DEMO_SCREENSHOTS.md) before committing generated images.
+
 ## Provider Adapters
 
 Provider adapters should be optional and isolated. Prefer official APIs when available. Browser-session probes should be documented as personal/local workflows and should never require committing credentials or session files.

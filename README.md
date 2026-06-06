@@ -12,9 +12,14 @@ The project started with Indian quick-commerce use cases, but the core ideas are
 - basket optimization across providers
 - a mobile-friendly PWA dashboard
 - browser-session based provider probes for personal/local use where official APIs are unavailable
-- public-safe demo data for development and screenshots
+- public-safe demo data and automated screenshots
 
-![Grocery Cockpit mobile demo](docs/assets/demo-mobile.png)
+![Grocery Cockpit desktop demo](docs/assets/demo-desktop.png)
+
+<p align="center">
+  <img src="docs/assets/demo-mobile.png" alt="Grocery Cockpit mobile demo" width="30%">
+  <img src="docs/assets/demo-basket.png" alt="Grocery Cockpit basket recommendation demo" width="64%">
+</p>
 
 ## Status
 
@@ -68,6 +73,14 @@ py -3.13 grocery_cockpit.py seed
 
 The seed command creates a small sample grocery list and price history. It does not need your account, address, browser profile, or private grocery history.
 
+Generate the public-safe README screenshots from an isolated synthetic demo:
+
+```powershell
+npm run screenshots
+```
+
+See [docs/DEMO_SCREENSHOTS.md](docs/DEMO_SCREENSHOTS.md) for the workflow and privacy boundary.
+
 ## Watchlist Import/Export
 
 Export only saved grocery definitions:
@@ -96,7 +109,7 @@ Copy `config.example.json` to `config.json`, then set your own location and acce
 - a private dashboard access key
 - provider configuration
 
-Do not commit `config.json`, `data/`, browser profiles, logs, screenshots, or exported order history.
+Do not commit `config.json`, `data/`, browser profiles, logs, real-account screenshots, or exported order history. The synthetic images under `docs/assets/` are intentionally public.
 
 ## Provider Probes
 
@@ -133,6 +146,7 @@ browser_scan_worker.mjs     Playwright-based provider probe worker
 browser_provider_adapters.mjs browser probe policy registry
 auto_scan_worker.py         rotating background scan runner
 basket_scan_worker.py       focused basket/item scan runner
+scripts/                    public demo screenshot generator
 static/                     app icons
 deploy/                     self-hosting starters
 tests/                      core logic tests
@@ -148,6 +162,7 @@ py -3.13 -m unittest discover -s tests
 node tests/browser_provider_adapters.test.mjs
 node --check browser_scan_worker.mjs
 py -3.13 -m py_compile grocery_cockpit.py provider_adapters.py auto_scan_worker.py basket_scan_worker.py
+npm run screenshots
 ```
 
 The bad-match tests are fixture-driven. Add synthetic cases to `tests/fixtures/bad_match_cases.json` when improving grocery matching behavior.
@@ -157,7 +172,6 @@ The decision-engine tests in `tests/test_decision_engine.py` protect basket reco
 ## Roadmap
 
 - expand import/export for watchlists without personal price history
-- add a public demo screenshot set generated from seed data
 - improve hosted deployment paths for private self-hosted use
 
 See [ROADMAP.md](ROADMAP.md) for the maintainer-oriented plan.

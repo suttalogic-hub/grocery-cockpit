@@ -42,7 +42,7 @@ foreach ($file in $files) {
     Copy-Item -LiteralPath (Join-Path $Root $file) -Destination (Join-Path $Stage $file) -Force
 }
 
-foreach ($dir in @("static", "deploy")) {
+foreach ($dir in @("static", "deploy", "scripts")) {
     Copy-Item -LiteralPath (Join-Path $Root $dir) -Destination (Join-Path $Stage $dir) -Recurse -Force
 }
 
