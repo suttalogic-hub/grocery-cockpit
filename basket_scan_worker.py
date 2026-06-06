@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import grocery_cockpit as cockpit
+import provider_adapters
 
 
 ROOT = Path(__file__).resolve().parent
@@ -128,13 +129,7 @@ def run_provider(
     )
 
     closed = cockpit.close_provider_profile_browsers(DATA_DIR, provider_id)
-    timeout_seconds = max(150, clean_limit * 18)
-    if provider_id == "amazon_fresh":
-        timeout_seconds = max(timeout_seconds, 360)
-    if provider_id == "dmart":
-        timeout_seconds = max(timeout_seconds, 360)
-    if provider_id == "bigbasket":
-        timeout_seconds = max(timeout_seconds, 480)
+    timeout_seconds = provider_adapters.scan_timeout(provider_id, max(150, clean_limit * 18), focused=True)
 
     with stdout_path.open("a", encoding="utf-8") as stdout, stderr_path.open("a", encoding="utf-8") as stderr:
         stdout.write(f"\n--- {now_iso()} {' '.join(command)} ---\n")

@@ -26,69 +26,21 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+import provider_adapters
+
 
 APP_NAME = "Groceries"
-APP_VERSION = "0.14.9"
+APP_VERSION = "0.15.0"
 DEFAULT_PORT = 8877
 ACCESS_COOKIE = "grocery_cockpit_access"
 STATE_CACHE_SECONDS = 30
-AUTO_SCAN_PROVIDER_IDS = ["zepto", "blinkit", "swiggy_instamart", "amazon_fresh", "jiomart", "dmart", "bigbasket"]
+AUTO_SCAN_PROVIDER_IDS = provider_adapters.provider_ids()
 WATCHLIST_SCHEMA = "grocery-cockpit.watchlist"
 WATCHLIST_SCHEMA_VERSION = 1
 WATCHLIST_IMPORT_LIMIT = 1000
 
 
-PROVIDERS = [
-    {
-        "id": "zepto",
-        "name": "Zepto",
-        "kind": "quick-commerce",
-        "status": "browser-ready",
-        "search_url": "https://www.zepto.com/search?query={query}",
-    },
-    {
-        "id": "blinkit",
-        "name": "Blinkit",
-        "kind": "quick-commerce",
-        "status": "browser-ready",
-        "search_url": "https://blinkit.com/s/?q={query}",
-    },
-    {
-        "id": "swiggy_instamart",
-        "name": "Swiggy Instamart",
-        "kind": "quick-commerce",
-        "status": "browser-ready",
-        "search_url": "https://www.swiggy.com/instamart/search?query={query}",
-    },
-    {
-        "id": "amazon_fresh",
-        "name": "Amazon Now",
-        "kind": "marketplace-grocery",
-        "status": "browser-ready",
-        "search_url": "https://www.amazon.in/s?k={query}&i=nowstore&almBrandId=ctnow&fpw=alm",
-    },
-    {
-        "id": "jiomart",
-        "name": "JioMart",
-        "kind": "grocery",
-        "status": "browser-ready",
-        "search_url": "https://www.jiomart.com/search/{query}",
-    },
-    {
-        "id": "dmart",
-        "name": "DMart Ready",
-        "kind": "grocery",
-        "status": "browser-ready",
-        "search_url": "https://www.dmart.in/search?searchTerm={query}",
-    },
-    {
-        "id": "bigbasket",
-        "name": "BigBasket",
-        "kind": "grocery",
-        "status": "browser-ready",
-        "search_url": "https://www.bigbasket.com/ps/?q={query}",
-    },
-]
+PROVIDERS = provider_adapters.provider_catalog()
 
 
 @dataclasses.dataclass
@@ -902,7 +854,7 @@ def evaluate_and_record_alerts(
 
 
 def provider_by_id(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    return {provider["id"]: provider for provider in config.get("providers", PROVIDERS)}
+    return provider_adapters.configured_provider_map(config.get("providers", PROVIDERS))
 
 
 def public_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -982,11 +934,7 @@ def search_url(
     query_override: str | None = None,
 ) -> str:
     query = (query_override or item_query_text(item)).strip()
-    if provider.get("id") == "jiomart":
-        return f"https://www.jiomart.com/search/{urllib.parse.quote(query)}"
-    if provider.get("id") == "amazon_fresh":
-        return f"https://www.amazon.in/s?k={urllib.parse.quote_plus(query)}&i=nowstore&almBrandId=ctnow&fpw=alm"
-    return provider["search_url"].format(query=urllib.parse.quote_plus(query))
+    return provider_adapters.build_search_url(provider, query)
 
 
 def amazon_now_open_url() -> str:
@@ -994,27 +942,11 @@ def amazon_now_open_url() -> str:
 
 
 def is_amazon_product_url(url: str | None) -> bool:
-    if not url:
-        return False
-    try:
-        parsed = urllib.parse.urlparse(str(url))
-    except ValueError:
-        return False
-    host = parsed.netloc.lower()
-    path = parsed.path.lower()
-    return host.endswith("amazon.in") and ("/dp/" in path or "/gp/product/" in path)
+    return provider_adapters.is_amazon_product_url(url)
 
 
 def open_url_for_provider(provider_id: str, product_url: str | None, fallback_search_url: str) -> tuple[str, str]:
-    if provider_id == "jiomart":
-        return fallback_search_url, "search"
-    if provider_id == "amazon_fresh":
-        if is_amazon_product_url(product_url):
-            return str(product_url), "product"
-        return fallback_search_url, "search"
-    if product_url:
-        return product_url, "product"
-    return fallback_search_url, "search"
+    return provider_adapters.choose_open_url(provider_id, product_url, fallback_search_url)
 
 
 def format_pack(value: float | None, unit: str) -> str:
@@ -4043,14 +3975,7 @@ def write_last_run(path: Path, payload: dict[str, Any]) -> None:
 
 
 def provider_scan_mode(provider: dict[str, Any]) -> str:
-    status = provider.get("status", "")
-    if status in {"browser-ready", "official-api-ready", "order-history-ready"}:
-        return "ready"
-    if status in {"browser-profile-needed", "needs-access"}:
-        return "setup"
-    if status in {"manual-link", "official-api-needed", "chrome-assisted"}:
-        return "manual"
-    return "planned"
+    return provider_adapters.scan_mode(provider)
 
 
 def latest_scan_run(conn: sqlite3.Connection) -> dict[str, Any] | None:

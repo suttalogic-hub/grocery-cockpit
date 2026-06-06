@@ -28,11 +28,13 @@ $files = @(
     "SECURITY.md",
     "auto_scan_worker.py",
     "basket_scan_worker.py",
+    "browser_provider_adapters.mjs",
     "browser_scan_worker.mjs",
     "config.example.json",
     "grocery_cockpit.py",
     "package-lock.json",
     "package.json",
+    "provider_adapters.py",
     "prepare_free_vm_bundle.ps1"
 )
 

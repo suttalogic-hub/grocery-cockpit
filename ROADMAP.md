@@ -11,7 +11,7 @@
 
 ## v0.2 Core Quality
 
-- Move provider-specific logic behind clearer adapter interfaces.
+- Move provider-specific logic behind clearer adapter interfaces. Completed in `0.15.0`.
 - Add more basket optimization and alerting tests.
 - Add screenshot generation from demo data for README assets.
 - Add CI for Python syntax, unit tests, and Node syntax checks.

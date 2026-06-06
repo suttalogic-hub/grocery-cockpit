@@ -32,8 +32,10 @@ jobs:
         run: python -m unittest discover -s tests
 
       - name: Compile Python files
-        run: python -m py_compile grocery_cockpit.py auto_scan_worker.py basket_scan_worker.py
+        run: python -m py_compile grocery_cockpit.py provider_adapters.py auto_scan_worker.py basket_scan_worker.py
+
+      - name: Run browser adapter contract
+        run: node tests/browser_provider_adapters.test.mjs
 
       - name: Check browser worker syntax
-        run: node --check browser_scan_worker.mjs
-
+        run: node --check browser_provider_adapters.mjs && node --check browser_scan_worker.mjs

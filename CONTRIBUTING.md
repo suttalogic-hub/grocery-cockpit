@@ -38,13 +38,16 @@ Run checks before opening a pull request:
 
 ```powershell
 py -3.13 -m unittest discover -s tests
-py -3.13 -m py_compile grocery_cockpit.py auto_scan_worker.py basket_scan_worker.py
+py -3.13 -m py_compile grocery_cockpit.py provider_adapters.py auto_scan_worker.py basket_scan_worker.py
+node tests/browser_provider_adapters.test.mjs
 node --check browser_scan_worker.mjs
 ```
 
 ## Provider Adapters
 
 Provider adapters should be optional and isolated. Prefer official APIs when available. Browser-session probes should be documented as personal/local workflows and should never require committing credentials or session files.
+
+Read [docs/PROVIDER_ADAPTERS.md](docs/PROVIDER_ADAPTERS.md) before changing provider behavior. Keep the Python and browser adapter registries aligned, and update their contract tests with every provider-policy change.
 
 ## Pull Request Style
 

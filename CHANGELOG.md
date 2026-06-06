@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.15.0 - Provider Adapter Boundary
+
+- Moved provider identity, search routing, open-link policy, readiness, and scan timeouts into a documented Python adapter registry.
+- Added a browser adapter registry for setup URLs, extractor selection, price parsing flags, and category-scan behavior.
+- Kept compatibility wrappers so existing dashboard and worker behavior remains stable.
+- Added browser-free contract tests covering all seven supported providers.
+- Documented the provider adapter surface and contribution expectations.
+
 ## 0.14.9 - Bad-Match Fixture Suite
 
 - Added a synthetic bad-match fixture suite covering exact, same-category, same-size, and unit-price matching modes.

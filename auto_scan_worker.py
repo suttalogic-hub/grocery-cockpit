@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import grocery_cockpit as cockpit
+import provider_adapters
 
 
 ROOT = Path(__file__).resolve().parent
@@ -23,7 +24,7 @@ STATUS_PATH = DATA_DIR / "auto_scan_status.json"
 CONFIG_PATH = ROOT / "config.json"
 DB_PATH = DATA_DIR / "grocery.sqlite"
 WORKER_PATH = ROOT / "browser_scan_worker.mjs"
-DEFAULT_PROVIDERS = "zepto,blinkit,swiggy_instamart,amazon_fresh,jiomart,dmart,bigbasket"
+DEFAULT_PROVIDERS = ",".join(cockpit.AUTO_SCAN_PROVIDER_IDS)
 
 
 def now_iso() -> str:
@@ -161,13 +162,7 @@ def run_provider(
     write_provider_action(provider_id, provider_name, "running", "Auto scan is running.")
 
     closed = cockpit.close_provider_profile_browsers(DATA_DIR, provider_id)
-    timeout_seconds = max(120, limit * 12)
-    if provider_id == "amazon_fresh":
-        timeout_seconds = max(timeout_seconds, 360)
-    if provider_id == "dmart":
-        timeout_seconds = max(timeout_seconds, 360)
-    if provider_id == "bigbasket":
-        timeout_seconds = max(timeout_seconds, 420)
+    timeout_seconds = provider_adapters.scan_timeout(provider_id, max(120, limit * 12))
     with stdout_path.open("a", encoding="utf-8") as stdout, stderr_path.open("a", encoding="utf-8") as stderr:
         stdout.write(f"\n--- {now_iso()} {' '.join(command)} ---\n")
         stdout.flush()

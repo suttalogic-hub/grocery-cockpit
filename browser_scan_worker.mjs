@@ -4,6 +4,14 @@ import fsSync from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright-core";
+import {
+  BIGBASKET_CATEGORY_URLS,
+  providerExtractor,
+  providerHome,
+  providerMatchStatusMode,
+  usesCategoryScan,
+  usesExtendedPriceParsing,
+} from "./browser_provider_adapters.mjs";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(root, "data");
@@ -11,16 +19,7 @@ const defaultPlanPath = path.join(dataDir, "latest_scan_plan.json");
 const profileRoot = path.join(dataDir, "browser-profiles");
 const screenshotDir = path.join(dataDir, "probe-screenshots");
 const chromePath = resolveBrowserExecutablePath();
-const bigBasketCategoryUrls = [
-  { label: "Fruits & Vegetables", url: "https://www.bigbasket.com/cl/fruits-vegetables/?nc=nb" },
-  { label: "Bakery, Cakes & Dairy", url: "https://www.bigbasket.com/cl/bakery-cakes-dairy/?nc=nb" },
-  { label: "Beverages", url: "https://www.bigbasket.com/cl/beverages/?nc=nb" },
-  { label: "Foodgrains, Oil & Masala", url: "https://www.bigbasket.com/cl/foodgrains-oil-masala/?nc=nb" },
-  { label: "Snacks & Branded Foods", url: "https://www.bigbasket.com/cl/snacks-branded-foods/?nc=nb" },
-  { label: "Cleaning & Household", url: "https://www.bigbasket.com/cl/cleaning-household/?nc=nb" },
-  { label: "Beauty & Hygiene", url: "https://www.bigbasket.com/cl/beauty-hygiene/?nc=nb" },
-  { label: "Eggs, Meat & Fish", url: "https://www.bigbasket.com/cl/eggs-meat-fish/?nc=nb" },
-];
+const bigBasketCategoryUrls = BIGBASKET_CATEGORY_URLS;
 
 function resolveBrowserExecutablePath() {
   if (process.env.GROCERY_CHROME_PATH) {
@@ -187,19 +186,6 @@ async function launchContext(options = {}) {
   return chromium.launchPersistentContext(userDataDir, launchOptions);
 }
 
-function providerHome(providerId) {
-  const urls = {
-    zepto: "https://www.zepto.com/",
-    blinkit: "https://blinkit.com/",
-    swiggy_instamart: "https://www.swiggy.com/instamart",
-    amazon_fresh: "https://www.amazon.in/tez/browse/now",
-    jiomart: "https://www.jiomart.com/",
-    dmart: "https://www.dmart.in/",
-    bigbasket: "https://www.bigbasket.com/",
-  };
-  return urls[providerId] || "about:blank";
-}
-
 async function setupProvider(providerId, args) {
   const minutes = Number(args.minutes || 20);
   const context = await launchContext({ headless: false, providerId });
@@ -234,7 +220,7 @@ function priceCandidatesFromText(text, providerId = "") {
       candidates.push(value);
     }
   }
-  if (providerId === "swiggy_instamart") {
+  if (providerId && usesExtendedPriceParsing(providerId)) {
     const swiggyPatterns = [
       /\b[0-9]{1,2}%\s*OFF\s+([0-9][0-9,]*(?:\.[0-9]{1,2})?)\b(?!\s*(?:MINS?|MINUTES?)\b)(?:\s+[0-9][0-9,]*(?:\.[0-9]{1,2})?\b)?/gi,
     ];
@@ -1179,7 +1165,7 @@ async function shouldUseBigBasketCategoryScan(args) {
 }
 
 async function probeProvider(providerId, args) {
-  if (providerId === "bigbasket" && await shouldUseBigBasketCategoryScan(args)) {
+  if (usesCategoryScan(providerId) && await shouldUseBigBasketCategoryScan(args)) {
     await probeBigBasketCategories(args);
     return;
   }
@@ -1231,9 +1217,10 @@ async function probeProvider(providerId, args) {
         }
         await page.waitForTimeout(2500 + slowMs);
         let result;
-        if (providerId === "amazon_fresh") {
+        const extractor = providerExtractor(providerId);
+        if (extractor === "amazon") {
           result = await extractAmazonPageProbe(page, target);
-        } else if (providerId === "dmart") {
+        } else if (extractor === "dmart") {
           result = await extractDmartPageProbe(page, target);
         } else {
           result = await extractPageProbe(page, target);
@@ -1279,7 +1266,7 @@ async function probeProvider(providerId, args) {
     limit,
     range_start: offset + 1,
     range_end: offset + targets.length,
-    match_status_mode: ["amazon_fresh", "dmart"].includes(providerId) ? "best_probe_match" : undefined,
+    match_status_mode: providerMatchStatusMode(providerId),
     results,
   };
   const outPath = path.join(dataDir, `${providerId}_probe_results.json`);

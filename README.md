@@ -122,11 +122,15 @@ Run a small probe:
 
 Provider support is intentionally isolated from the core matching and pricing logic. A public deployment should not include personal browser profiles or cookies.
 
+See [docs/PROVIDER_ADAPTERS.md](docs/PROVIDER_ADAPTERS.md) for the adapter contract and test boundaries.
+
 ## Project Layout
 
 ```text
 grocery_cockpit.py          dashboard, API, storage, matching, alerts
+provider_adapters.py        Python provider catalog, routing, and scan policy
 browser_scan_worker.mjs     Playwright-based provider probe worker
+browser_provider_adapters.mjs browser probe policy registry
 auto_scan_worker.py         rotating background scan runner
 basket_scan_worker.py       focused basket/item scan runner
 static/                     app icons
@@ -141,19 +145,18 @@ Run the current test suite:
 
 ```powershell
 py -3.13 -m unittest discover -s tests
+node tests/browser_provider_adapters.test.mjs
 node --check browser_scan_worker.mjs
-py -3.13 -m py_compile grocery_cockpit.py auto_scan_worker.py basket_scan_worker.py
+py -3.13 -m py_compile grocery_cockpit.py provider_adapters.py auto_scan_worker.py basket_scan_worker.py
 ```
 
 The bad-match tests are fixture-driven. Add synthetic cases to `tests/fixtures/bad_match_cases.json` when improving grocery matching behavior.
 
 ## Roadmap
 
-- separate provider adapters from the core application more cleanly
 - add more tests for basket optimization
 - expand import/export for watchlists without personal price history
 - add a public demo screenshot set generated from seed data
-- document adapter compliance expectations
 - improve hosted deployment paths for private self-hosted use
 
 See [ROADMAP.md](ROADMAP.md) for the maintainer-oriented plan.
