@@ -55,7 +55,7 @@ ADAPTERS = (
         kind="marketplace-grocery",
         status="browser-ready",
         search_url="https://www.amazon.in/s?k={query}&i=nowstore&almBrandId=ctnow&fpw=alm",
-        open_strategy="amazon_product_or_search",
+        open_strategy="amazon_now_handoff",
         auto_scan_timeout_seconds=360,
         focused_scan_timeout_seconds=360,
     ),
@@ -133,15 +133,25 @@ def is_amazon_product_url(url: str | None) -> bool:
     )
 
 
+def amazon_now_handoff_url(search_url: str = "") -> str:
+    query = ""
+    if search_url:
+        try:
+            query = urllib.parse.parse_qs(urllib.parse.urlparse(search_url).query).get("k", [""])[0]
+        except ValueError:
+            query = ""
+    if query:
+        return f"/amazon-now?query={urllib.parse.quote_plus(query)}"
+    return "/amazon-now"
+
+
 def choose_open_url(provider_id: str, product_url: str | None, fallback_search_url: str) -> tuple[str, str]:
     adapter = ADAPTERS_BY_ID.get(provider_id)
     strategy = adapter.open_strategy if adapter else "product_or_search"
     if strategy == "search_only":
         return fallback_search_url, "search"
-    if strategy == "amazon_product_or_search":
-        if is_amazon_product_url(product_url):
-            return str(product_url), "product"
-        return fallback_search_url, "search"
+    if strategy == "amazon_now_handoff":
+        return amazon_now_handoff_url(fallback_search_url), "now"
     if product_url:
         return str(product_url), "product"
     return fallback_search_url, "search"

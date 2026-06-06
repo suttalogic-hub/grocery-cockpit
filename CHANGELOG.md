@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.4 - Amazon Now Handoff
+
+- Routed every Amazon action through the Amazon Now app handoff instead of Fresh web routes.
+- Moved the menu button to the far left of the header.
+
 ## 0.15.3 - Item Controls
 
 - Added compact individual dismiss controls to deal alerts.

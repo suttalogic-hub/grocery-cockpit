@@ -30,7 +30,7 @@ import provider_adapters
 
 
 APP_NAME = "Groceries"
-APP_VERSION = "0.15.3"
+APP_VERSION = "0.15.4"
 DEFAULT_PORT = 8877
 ACCESS_COOKIE = "grocery_cockpit_access"
 STATE_CACHE_SECONDS = 30
@@ -982,8 +982,8 @@ def search_url(
     return provider_adapters.build_search_url(provider, query)
 
 
-def amazon_now_open_url() -> str:
-    return "/amazon-now"
+def amazon_now_open_url(search_url: str = "") -> str:
+    return provider_adapters.amazon_now_handoff_url(search_url)
 
 
 def is_amazon_product_url(url: str | None) -> bool:
@@ -3354,7 +3354,8 @@ class GroceryHandler(http.server.BaseHTTPRequestHandler):
                 return
             headers = self.access_cookie_header(config) if set_cookie else {}
             headers["Cache-Control"] = "no-store"
-            self.send_html(render_amazon_now_handoff(), headers=headers)
+            query = urllib.parse.parse_qs(parsed.query).get("query", [""])[0]
+            self.send_html(render_amazon_now_handoff(query), headers=headers)
             return
         if parsed.path.startswith("/api/state"):
             if not authorized:
@@ -4297,10 +4298,13 @@ def render_locked_page() -> str:
 </html>"""
 
 
-def render_amazon_now_handoff() -> str:
+def render_amazon_now_handoff(query: str = "") -> str:
     app_url = "com.amazon.mobile.shopping://"
-    alt_app_url = "com.amazon.mobile.shopping.web://www.amazon.in/"
-    web_url = "https://www.amazon.in/"
+    query_note = (
+        f"<div class=\"query-box\"><span>Search inside Amazon Now</span><strong>{html.escape(query)}</strong></div>"
+        if query
+        else ""
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -4362,19 +4366,28 @@ def render_amazon_now_handoff() -> str:
       color: #fff;
     }}
     .tiny {{ font-size: 12px; }}
+    .query-box {{
+      display: grid;
+      gap: 3px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff7f3;
+      overflow-wrap: anywhere;
+    }}
+    .query-box span {{ color: var(--muted); font-size: 12px; }}
   </style>
 </head>
 <body>
   <main>
     <h1>Open Amazon Now</h1>
-    <p id="status">Amazon's old Now web route opens the wrong page, so this opens Amazon directly. Tap the lightning Now icon inside Amazon.</p>
+    <p id="status">Amazon does not provide a reliable Now product deep-link. This opens the Amazon app directly; tap the lightning Now icon inside Amazon.</p>
+    {query_note}
     <button class="primary" id="openApp" type="button">Open Amazon app</button>
-    <a href="{html.escape(web_url)}" id="webFallback">Open Amazon website</a>
     <a href="/" class="tiny">Back to Groceries</a>
   </main>
   <script>
     const appUrl = {json.dumps(app_url)};
-    const altAppUrl = {json.dumps(alt_app_url)};
     const statusNode = document.getElementById('status');
 
     function tryUrl(url) {{
@@ -4389,11 +4402,8 @@ def render_amazon_now_handoff() -> str:
       statusNode.textContent = 'Opening Amazon. If iOS asks, choose Open, then tap Now inside Amazon.';
       tryUrl(appUrl);
       window.setTimeout(() => {{
-        if (!document.hidden) tryUrl(altAppUrl);
-      }}, 900);
-      window.setTimeout(() => {{
         if (!document.hidden) {{
-          statusNode.textContent = 'The app did not take over. Use the Amazon website button below, then open Now inside Amazon.';
+          statusNode.textContent = 'The app did not take over. Tap Open Amazon app again, then tap Now inside Amazon.';
         }}
       }}, 1800);
     }}
@@ -4450,7 +4460,7 @@ def render_app() -> str:
     }
     header {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: auto minmax(0, 1fr) auto;
       align-items: center;
       gap: 16px;
       padding: calc(12px + env(safe-area-inset-top)) clamp(16px, 4vw, 36px) 12px;
@@ -5614,7 +5624,7 @@ def render_app() -> str:
     }
     @media (max-width: 760px) {
       header {
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: auto minmax(0, 1fr) auto;
         gap: 10px;
         align-items: center;
       }
@@ -5772,6 +5782,13 @@ def render_app() -> str:
 </head>
 <body>
   <header>
+    <button class="top-tool-button icon-only sidebar-toggle" id="sidebarOpenBtn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="appSidebar">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 6h16"></path>
+        <path d="M4 12h16"></path>
+        <path d="M4 18h16"></path>
+      </svg>
+    </button>
     <div class="brand-lockup">
       <div class="brand-mark">GC</div>
       <div class="brand-copy">
@@ -5780,13 +5797,6 @@ def render_app() -> str:
       </div>
     </div>
     <div class="top-icon-actions" aria-label="Quick tools">
-      <button class="top-tool-button icon-only sidebar-toggle" id="sidebarOpenBtn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="appSidebar">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 6h16"></path>
-          <path d="M4 12h16"></path>
-          <path d="M4 18h16"></path>
-        </svg>
-      </button>
       <button class="floating-search-button" id="floatingSearchBtn" type="button" aria-label="Search saved items" aria-expanded="false" aria-controls="floatingSearchPanel">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="11" cy="11" r="7"></circle>
@@ -6059,7 +6069,7 @@ def render_app() -> str:
 
     function appOpenUrl(url) {
       if (!url) return url;
-      if (String(url).startsWith('/amazon-now')) return withAccessKey('/amazon-now');
+      if (String(url).startsWith('/amazon-now')) return withAccessKey(String(url));
       return url;
     }
 
@@ -6178,8 +6188,7 @@ def render_app() -> str:
     }
 
     function providerLinkLabel(providerId, openKind = '') {
-      if (providerId === 'amazon_fresh' && openKind === 'product') return 'Open product';
-      if (providerId === 'amazon_fresh') return 'Search Now';
+      if (providerId === 'amazon_fresh') return 'Open Now';
       if (openKind === 'now') return 'Open Now';
       return openKind === 'product' ? 'Open' : 'Search';
     }

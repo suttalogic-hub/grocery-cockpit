@@ -61,11 +61,10 @@ class ProviderAdapterContractTests(unittest.TestCase):
         amazon_product = "https://www.amazon.in/example/dp/B012345678"
 
         self.assertEqual(adapters.choose_open_url("jiomart", product, fallback), (fallback, "search"))
-        self.assertEqual(
-            adapters.choose_open_url("amazon_fresh", amazon_product, fallback),
-            (amazon_product, "product"),
-        )
-        self.assertEqual(adapters.choose_open_url("amazon_fresh", product, fallback), (fallback, "search"))
+        amazon_search = "https://www.amazon.in/s?k=paneer&i=nowstore&almBrandId=ctnow&fpw=alm"
+        expected_amazon_handoff = ("/amazon-now?query=paneer", "now")
+        self.assertEqual(adapters.choose_open_url("amazon_fresh", amazon_product, amazon_search), expected_amazon_handoff)
+        self.assertEqual(adapters.choose_open_url("amazon_fresh", product, amazon_search), expected_amazon_handoff)
         for provider_id in {"zepto", "blinkit", "swiggy_instamart", "dmart", "bigbasket"}:
             with self.subTest(provider=provider_id):
                 self.assertEqual(adapters.choose_open_url(provider_id, product, fallback), (product, "product"))

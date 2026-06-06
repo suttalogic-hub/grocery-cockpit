@@ -25,12 +25,13 @@ class CorePricingTests(unittest.TestCase):
         self.assertEqual(g.pack_from_text("Coca-Cola Zero Sugar 750ml bottle"), (750.0, "ml"))
         self.assertEqual(g.pack_from_text("Value pack 2 x 500 g"), (1000.0, "g"))
 
-    def test_amazon_product_urls_open_as_products(self):
+    def test_amazon_links_use_now_handoff_instead_of_fresh_web_routes(self):
         fallback = "https://www.amazon.in/s?k=potato&i=nowstore&almBrandId=ctnow&fpw=alm"
         product = "https://www.amazon.in/Fresh-Potato-1kg-Pack/dp/B07BG5GZP2/ref=sr_1_1"
 
-        self.assertEqual(g.open_url_for_provider("amazon_fresh", product, fallback), (product, "product"))
-        self.assertEqual(g.open_url_for_provider("amazon_fresh", "", fallback), (fallback, "search"))
+        expected = ("/amazon-now?query=potato", "now")
+        self.assertEqual(g.open_url_for_provider("amazon_fresh", product, fallback), expected)
+        self.assertEqual(g.open_url_for_provider("amazon_fresh", "", fallback), expected)
 
 
 class CoreMatchingTests(unittest.TestCase):
