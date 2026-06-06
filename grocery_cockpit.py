@@ -30,7 +30,7 @@ import provider_adapters
 
 
 APP_NAME = "Groceries"
-APP_VERSION = "0.15.2"
+APP_VERSION = "0.15.3"
 DEFAULT_PORT = 8877
 ACCESS_COOKIE = "grocery_cockpit_access"
 STATE_CACHE_SECONDS = 30
@@ -549,6 +549,51 @@ def optional_float(value: Any, field_name: str) -> float | None:
         return float(value)
     except (TypeError, ValueError) as exc:
         raise ValueError(f"{field_name} must be a number") from exc
+
+
+def update_item(conn: sqlite3.Connection, item_id: int, payload: dict[str, Any]) -> bool:
+    item = conn.execute("SELECT id FROM items WHERE id = ? AND active = 1", (item_id,)).fetchone()
+    if item is None:
+        return False
+
+    updates: dict[str, Any] = {}
+    if "name" in payload:
+        name = compact_text(payload.get("name"), 160)
+        if not name:
+            raise ValueError("Item name is required")
+        updates["name"] = name
+    if "brand" in payload:
+        updates["brand"] = compact_text(payload.get("brand"), 120)
+    if "pack_value" in payload:
+        updates["pack_value"] = optional_float(payload.get("pack_value"), "Pack value")
+    if "pack_unit" in payload:
+        updates["pack_unit"] = normalize_pack_unit(str(payload.get("pack_unit") or ""))
+    if "category" in payload:
+        updates["category"] = compact_text(payload.get("category"), 120)
+    if "target_price" in payload:
+        updates["target_price"] = optional_float(payload.get("target_price"), "Target price")
+    if "notes" in payload:
+        updates["notes"] = compact_text(payload.get("notes"), 500)
+    if "match_mode" in payload:
+        updates["match_mode"] = normalize_match_mode(payload.get("match_mode"))
+    if not updates:
+        raise ValueError("Nothing to update")
+    if any(value is not None and isinstance(value, (int, float)) and value < 0 for value in updates.values()):
+        raise ValueError("Pack value and target price cannot be negative")
+
+    assignments = ", ".join(f"{key} = ?" for key in updates)
+    conn.execute(
+        f"UPDATE items SET {assignments} WHERE id = ?",
+        (*updates.values(), item_id),
+    )
+    conn.commit()
+    return True
+
+
+def delete_item(conn: sqlite3.Connection, item_id: int) -> bool:
+    cursor = conn.execute("DELETE FROM items WHERE id = ? AND active = 1", (item_id,))
+    conn.commit()
+    return cursor.rowcount > 0
 
 
 def watchlist_item_input(entry: Any) -> ItemInput:
@@ -3350,6 +3395,9 @@ class GroceryHandler(http.server.BaseHTTPRequestHandler):
             if parsed.path == "/api/item/update":
                 self.handle_update_item(payload)
                 return
+            if parsed.path == "/api/item/delete":
+                self.handle_delete_item(payload)
+                return
             if parsed.path == "/api/observations":
                 self.handle_add_observation(payload)
                 return
@@ -3633,23 +3681,36 @@ class GroceryHandler(http.server.BaseHTTPRequestHandler):
         except (TypeError, ValueError):
             self.send_json({"ok": False, "error": "Invalid item"}, status=400)
             return
-        updates: dict[str, Any] = {}
-        if "match_mode" in payload:
-            updates["match_mode"] = normalize_match_mode(payload.get("match_mode"))
-        if not updates:
-            self.send_json({"ok": False, "error": "Nothing to update"}, status=400)
+        config = load_config(self.config_path)
+        conn = open_db(self.db_path)
+        try:
+            try:
+                updated = update_item(conn, item_id, payload)
+            except ValueError as exc:
+                self.send_json({"ok": False, "error": str(exc)}, status=400)
+                return
+            if not updated:
+                self.send_json({"ok": False, "error": "Item not found"}, status=404)
+                return
+            plan = create_scan_plan(conn, config, self.db_path.parent, source="item_settings")
+            state = self.remember_state(build_state(conn, config, self.db_path.parent))
+            self.send_json({"ok": True, "state": state, "plan": plan["summary"], "item_id": item_id})
+        finally:
+            conn.close()
+
+    def handle_delete_item(self, payload: dict[str, Any]) -> None:
+        try:
+            item_id = int(payload.get("item_id"))
+        except (TypeError, ValueError):
+            self.send_json({"ok": False, "error": "Invalid item"}, status=400)
             return
         config = load_config(self.config_path)
         conn = open_db(self.db_path)
         try:
-            item = conn.execute("SELECT id FROM items WHERE id = ? AND active = 1", (item_id,)).fetchone()
-            if item is None:
+            if not delete_item(conn, item_id):
                 self.send_json({"ok": False, "error": "Item not found"}, status=404)
                 return
-            for key, value in updates.items():
-                conn.execute(f"UPDATE items SET {key} = ? WHERE id = ?", (value, item_id))
-            conn.commit()
-            plan = create_scan_plan(conn, config, self.db_path.parent, source="item_settings")
+            plan = create_scan_plan(conn, config, self.db_path.parent, source="item_deleted")
             state = self.remember_state(build_state(conn, config, self.db_path.parent))
             self.send_json({"ok": True, "state": state, "plan": plan["summary"], "item_id": item_id})
         finally:
@@ -5040,6 +5101,43 @@ def render_app() -> str:
       line-height: 1.2;
       overflow-wrap: anywhere;
     }
+    .item-title-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .item-title-row h2 {
+      flex: 1 1 auto;
+    }
+    .item-edit-button,
+    .alert-dismiss-button {
+      width: 32px;
+      height: 32px;
+      min-height: 32px;
+      flex: 0 0 32px;
+      display: inline-grid;
+      place-items: center;
+      padding: 0;
+      border-radius: 6px;
+      background: #fff;
+      color: var(--muted);
+    }
+    .item-edit-button:hover,
+    .alert-dismiss-button:hover {
+      color: var(--accent-dark);
+      border-color: rgba(226, 55, 68, .38);
+      background: var(--accent-soft);
+    }
+    .item-edit-button svg,
+    .alert-dismiss-button svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
     .item-meta {
       display: grid;
       gap: 5px;
@@ -5152,6 +5250,9 @@ def render_app() -> str:
       grid-template-columns: minmax(0, 1fr) auto;
       gap: 8px;
       align-items: start;
+    }
+    .alert-dismiss-button {
+      margin: -2px -2px 0 0;
     }
     .alert-actions {
       display: flex;
@@ -5439,6 +5540,22 @@ def render_app() -> str:
     }
     dialog form {
       padding: 16px;
+    }
+    .dialog-actions {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+    .dialog-actions .danger {
+      margin-left: auto;
+      color: #b42318;
+      border-color: rgba(180, 35, 24, .3);
+      background: #fff;
+    }
+    .dialog-actions .danger:hover {
+      background: #fff0ee;
+      border-color: rgba(180, 35, 24, .5);
     }
     .basket-dialog {
       width: min(760px, calc(100vw - 24px));
@@ -5823,6 +5940,7 @@ def render_app() -> str:
     <form method="dialog" id="itemForm">
       <h2 id="itemDialogTitle">Add grocery item</h2>
       <div class="section-note" id="itemDialogNote">Save recurring items here. Use Need + Check when you are shopping right now.</div>
+      <input type="hidden" name="item_id">
       <label>Name</label>
       <input name="name" required placeholder="Curry cut chicken">
       <label>Brand</label>
@@ -5854,10 +5972,11 @@ def render_app() -> str:
       </select>
       <label>Target price</label>
       <input name="target_price" type="number" step="0.01" placeholder="250">
-      <div class="actions">
-        <button class="primary" value="save" data-submit-mode="save">Save</button>
-        <button value="need_now" data-submit-mode="need_now">Need + Check</button>
+      <div class="dialog-actions">
+        <button class="primary" id="itemSaveBtn" value="save" data-submit-mode="save">Save</button>
+        <button id="itemNeedNowBtn" value="need_now" data-submit-mode="need_now">Need + Check</button>
         <button type="button" id="itemCancelBtn">Cancel</button>
+        <button class="danger" type="button" id="itemDeleteBtn" hidden>Delete item</button>
       </div>
     </form>
   </dialog>
@@ -6304,7 +6423,9 @@ def render_app() -> str:
               <div class="tiny muted">${escapeHtml(a.provider_name || providerNames[a.provider_id] || a.provider_id)} - ${money(a.current_price)} vs ${money(a.reference_price)}</div>
               <div class="tiny muted">${escapeHtml(alertUpdatedLabel(a))}</div>
             </div>
-            <button class="toggle-button" type="button" onclick="dismissAlert(${Number(a.id)})">Dismiss</button>
+            <button class="alert-dismiss-button" type="button" onclick="dismissAlert(${Number(a.id)})" aria-label="Dismiss alert" title="Dismiss alert">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+            </button>
           </div>
           <div class="alert-actions">
             <a class="link-button" href="${escapeAttr(appOpenUrl(a.open_url || a.search_url || '#'))}" target="_blank" rel="noreferrer">Open</a>
@@ -7009,7 +7130,12 @@ def render_app() -> str:
           <article class="item-card ${highlightedItemId === item.id ? 'is-highlighted' : ''}" id="item-${item.id}" data-search-text="${escapeAttr(searchText)}">
             <div class="item-head">
               <div>
-                <h2>${escapeHtml(card.display_name)}</h2>
+                <div class="item-title-row">
+                  <h2>${escapeHtml(card.display_name)}</h2>
+                  <button class="item-edit-button" type="button" onclick="openEditItemDialog(${item.id})" aria-label="Edit ${escapeAttr(card.display_name)}" title="Edit item">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20z"></path><path d="M13.8 7.2l3 3"></path></svg>
+                  </button>
+                </div>
                 <div class="item-meta">
                   <div class="muted tiny">${escapeHtml(item.category || 'Uncategorized')} - ${escapeHtml(flexibilityDescription(item.match_mode))}</div>
                   ${renderMatchModeSelect(item)}
@@ -7140,8 +7266,13 @@ def render_app() -> str:
       const dialog = document.getElementById('itemDialog');
       const form = document.getElementById('itemForm');
       form.reset();
+      form.dataset.mode = 'add';
       form.dataset.intent = intent;
+      form.elements.item_id.value = '';
       form.elements.name.value = prefillName || '';
+      document.getElementById('itemSaveBtn').textContent = 'Save';
+      document.getElementById('itemNeedNowBtn').hidden = false;
+      document.getElementById('itemDeleteBtn').hidden = true;
       if (intent === 'need_now') {
         document.getElementById('itemDialogTitle').textContent = 'Need something new';
         document.getElementById('itemDialogNote').textContent = 'Add it to your basket and check prices across the connected apps now.';
@@ -7152,6 +7283,35 @@ def render_app() -> str:
         document.getElementById('itemDialogNote').textContent = 'Save recurring items here. Use Need + Check when you are shopping right now.';
         form.elements.match_mode.value = 'exact';
       }
+      dialog.showModal();
+      window.setTimeout(() => form.elements.name.focus(), 0);
+    }
+
+    function openEditItemDialog(itemId) {
+      const card = (state.items || []).find(entry => Number(entry.item?.id) === Number(itemId));
+      if (!card?.item) {
+        alert('This item is not available to edit right now.');
+        return;
+      }
+      const item = card.item;
+      const dialog = document.getElementById('itemDialog');
+      const form = document.getElementById('itemForm');
+      form.reset();
+      form.dataset.mode = 'edit';
+      form.dataset.intent = 'save';
+      form.elements.item_id.value = String(item.id);
+      form.elements.name.value = item.name || '';
+      form.elements.brand.value = item.brand || '';
+      form.elements.pack_value.value = item.pack_value ?? '';
+      form.elements.pack_unit.value = item.pack_unit || 'g';
+      form.elements.category.value = item.category || '';
+      form.elements.match_mode.value = normalizedMatchMode(item.match_mode);
+      form.elements.target_price.value = item.target_price ?? '';
+      document.getElementById('itemDialogTitle').textContent = 'Edit grocery item';
+      document.getElementById('itemDialogNote').textContent = 'Change how this item appears and how prices should be compared.';
+      document.getElementById('itemSaveBtn').textContent = 'Save changes';
+      document.getElementById('itemNeedNowBtn').hidden = true;
+      document.getElementById('itemDeleteBtn').hidden = false;
       dialog.showModal();
       window.setTimeout(() => form.elements.name.focus(), 0);
     }
@@ -7181,6 +7341,25 @@ def render_app() -> str:
         await loadState();
         return;
       }
+      state = payload.state || state;
+      render();
+    }
+
+    async function deleteItem(itemId) {
+      const card = (state.items || []).find(entry => Number(entry.item?.id) === Number(itemId));
+      const label = card?.display_name || 'this item';
+      if (!window.confirm(`Delete ${label}? Its saved prices, alerts, and basket entry will also be removed.`)) return;
+      const res = await fetch('/api/item/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ item_id: itemId })
+      });
+      const payload = await res.json();
+      if (!payload.ok) {
+        alert(payload.error || 'Could not delete this item');
+        return;
+      }
+      document.getElementById('itemDialog').close();
       state = payload.state || state;
       render();
     }
@@ -7452,6 +7631,10 @@ def render_app() -> str:
     document.getElementById('itemCancelBtn').addEventListener('click', () => {
       document.getElementById('itemDialog').close();
     });
+    document.getElementById('itemDeleteBtn').addEventListener('click', () => {
+      const itemId = Number(document.getElementById('itemForm').elements.item_id.value);
+      if (itemId) deleteItem(itemId);
+    });
     document.getElementById('priceCancelBtn').addEventListener('click', () => {
       document.getElementById('priceDialog').close();
     });
@@ -7486,6 +7669,22 @@ def render_app() -> str:
         return;
       }
       const data = Object.fromEntries(new FormData(event.target).entries());
+      if (event.target.dataset.mode === 'edit') {
+        const res = await fetch('/api/item/update', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data)
+        });
+        const payload = await res.json();
+        if (!payload.ok) {
+          alert(payload.error || 'Could not update this item');
+          return;
+        }
+        document.getElementById('itemDialog').close();
+        state = payload.state || state;
+        render();
+        return;
+      }
       if (submitMode === 'need_now') {
         data.add_to_basket = true;
         data.scan_now = true;

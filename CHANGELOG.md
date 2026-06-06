@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.3 - Item Controls
+
+- Added compact individual dismiss controls to deal alerts.
+- Added item editing and safe item deletion from every saved item card.
+
 ## 0.15.2 - Automated Demo Screenshots
 
 - Added a one-command public screenshot generator using isolated synthetic data.

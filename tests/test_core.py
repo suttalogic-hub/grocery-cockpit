@@ -244,6 +244,77 @@ class WatchlistImportExportTests(unittest.TestCase):
         self.assertEqual(active_names, ["New item"])
 
 
+class ItemManagementTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.conn = g.open_db(Path(self.tmp.name) / "grocery.sqlite")
+        self.item_id = g.add_item(
+            self.conn,
+            g.ItemInput(
+                name="Paneer",
+                brand="Amul",
+                pack_value=200,
+                pack_unit="g",
+                category="Dairy",
+                target_price=90,
+            ),
+        )
+
+    def tearDown(self):
+        self.conn.close()
+        self.tmp.cleanup()
+
+    def test_update_item_changes_editable_fields(self):
+        updated = g.update_item(
+            self.conn,
+            self.item_id,
+            {
+                "name": "Low Fat Paneer",
+                "brand": "Desi Farms",
+                "pack_value": "250",
+                "pack_unit": "g",
+                "category": "Fresh dairy",
+                "target_price": "85",
+                "match_mode": "same_size",
+            },
+        )
+
+        self.assertTrue(updated)
+        row = self.conn.execute("SELECT * FROM items WHERE id = ?", (self.item_id,)).fetchone()
+        self.assertEqual(row["name"], "Low Fat Paneer")
+        self.assertEqual(row["brand"], "Desi Farms")
+        self.assertEqual(row["pack_value"], 250)
+        self.assertEqual(row["target_price"], 85)
+        self.assertEqual(row["match_mode"], "same_size")
+
+    def test_delete_item_cascades_related_data(self):
+        now = g.utc_now_iso()
+        self.conn.execute(
+            """
+            INSERT INTO observations (
+                item_id, provider_id, observed_at, price, effective_price, source
+            ) VALUES (?, 'zepto', ?, 80, 80, 'test')
+            """,
+            (self.item_id, now),
+        )
+        self.conn.execute(
+            """
+            INSERT INTO alerts (
+                item_id, provider_id, observed_at, current_price, reference_price,
+                reference_window, drop_percent, reason, alert_key
+            ) VALUES (?, 'zepto', ?, 80, 100, '10d', 20, 'test', ?)
+            """,
+            (self.item_id, now, f"test-{self.item_id}"),
+        )
+        g.set_basket_item(self.conn, self.item_id, 1)
+
+        self.assertTrue(g.delete_item(self.conn, self.item_id))
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM items").fetchone()[0], 0)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM observations").fetchone()[0], 0)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM alerts").fetchone()[0], 0)
+        self.assertEqual(self.conn.execute("SELECT COUNT(*) FROM basket_items").fetchone()[0], 0)
+
+
 def json_dumps(payload):
     return json.dumps(payload, sort_keys=True)
 
