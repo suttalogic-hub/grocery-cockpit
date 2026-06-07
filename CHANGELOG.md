@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.15.5 - Direct Amazon App Links
+
+- Replaced the iOS-blocked hidden Amazon launch with direct user-tapped app links.
+- Added an alternate Amazon app link and a non-Fresh Amazon home fallback.
+
 ## 0.15.4 - Amazon Now Handoff
 
 - Routed every Amazon action through the Amazon Now app handoff instead of Fresh web routes.

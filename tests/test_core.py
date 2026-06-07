@@ -33,6 +33,12 @@ class CorePricingTests(unittest.TestCase):
         self.assertEqual(g.open_url_for_provider("amazon_fresh", product, fallback), expected)
         self.assertEqual(g.open_url_for_provider("amazon_fresh", "", fallback), expected)
 
+    def test_amazon_handoff_uses_direct_user_tapped_app_links(self):
+        page = g.render_amazon_now_handoff("potato")
+        self.assertIn('href="com.amazon.mobile.shopping.web://www.amazon.in/"', page)
+        self.assertIn('href="com.amazon.mobile.shopping://"', page)
+        self.assertNotIn("document.createElement('iframe')", page)
+
 
 class CoreMatchingTests(unittest.TestCase):
     def setUp(self):

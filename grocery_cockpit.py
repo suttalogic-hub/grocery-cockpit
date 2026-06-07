@@ -30,7 +30,7 @@ import provider_adapters
 
 
 APP_NAME = "Groceries"
-APP_VERSION = "0.15.4"
+APP_VERSION = "0.15.5"
 DEFAULT_PORT = 8877
 ACCESS_COOKIE = "grocery_cockpit_access"
 STATE_CACHE_SECONDS = 30
@@ -4299,7 +4299,9 @@ def render_locked_page() -> str:
 
 
 def render_amazon_now_handoff(query: str = "") -> str:
-    app_url = "com.amazon.mobile.shopping://"
+    app_url = "com.amazon.mobile.shopping.web://www.amazon.in/"
+    alt_app_url = "com.amazon.mobile.shopping://"
+    web_url = "https://www.amazon.in/"
     query_note = (
         f"<div class=\"query-box\"><span>Search inside Amazon Now</span><strong>{html.escape(query)}</strong></div>"
         if query
@@ -4383,32 +4385,27 @@ def render_amazon_now_handoff(query: str = "") -> str:
     <h1>Open Amazon Now</h1>
     <p id="status">Amazon does not provide a reliable Now product deep-link. This opens the Amazon app directly; tap the lightning Now icon inside Amazon.</p>
     {query_note}
-    <button class="primary" id="openApp" type="button">Open Amazon app</button>
+    <a class="primary app-link" href="{html.escape(app_url)}">Open Amazon app</a>
+    <a class="app-link" href="{html.escape(alt_app_url)}">Try alternate app link</a>
+    <a href="{html.escape(web_url)}" target="_blank" rel="noreferrer">Open Amazon home</a>
     <a href="/" class="tiny">Back to Groceries</a>
   </main>
   <script>
-    const appUrl = {json.dumps(app_url)};
+    const query = {json.dumps(query)};
     const statusNode = document.getElementById('status');
 
-    function tryUrl(url) {{
-      const frame = document.createElement('iframe');
-      frame.style.display = 'none';
-      frame.src = url;
-      document.body.appendChild(frame);
-      window.setTimeout(() => frame.remove(), 2500);
+    async function prepareAmazonOpen() {{
+      statusNode.textContent = 'Opening Amazon. Tap Now inside Amazon, then search the item shown above.';
+      if (!query || !navigator.clipboard?.writeText) return;
+      try {{
+        await navigator.clipboard.writeText(query);
+        statusNode.textContent = 'Item name copied. Opening Amazon; tap Now, then paste into search.';
+      }} catch (_) {{
+        // The direct app link still works when clipboard access is unavailable.
+      }}
     }}
 
-    function openAmazonNow() {{
-      statusNode.textContent = 'Opening Amazon. If iOS asks, choose Open, then tap Now inside Amazon.';
-      tryUrl(appUrl);
-      window.setTimeout(() => {{
-        if (!document.hidden) {{
-          statusNode.textContent = 'The app did not take over. Tap Open Amazon app again, then tap Now inside Amazon.';
-        }}
-      }}, 1800);
-    }}
-
-    document.getElementById('openApp').addEventListener('click', openAmazonNow);
+    document.querySelectorAll('.app-link').forEach(link => link.addEventListener('click', prepareAmazonOpen));
   </script>
 </body>
 </html>"""
